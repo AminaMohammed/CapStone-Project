@@ -1,0 +1,42 @@
+rom pyspark import SparkContext
+from pyspark.sql import SparkSession, SQLContext
+from pyspark.streaming import StreamingContext
+from pyspark.streaming.kafka import KafkaUtils
+from pyspark.sql.functions import explode
+from pyspark.sql.types import *
+import json
+
+cnt = 0
+def handle(rdd):
+        if not rdd.isEmpty():
+                global ss, cnt
+                if cnt < 1:
+                        mode = "overwrite"
+                        cnt+=1
+                else:
+                        mode = "append"
+                df = sqlContext.read.json(rdd)
+                df.write.format('jdbc').options(url='jdbc:mysql://localhost/spark_test_db', driver='com.mysql.jdbc.Driver', dbtable='Add_your_table', user='amina', password='xxxxx').mode(mode).save()
+                df.show()
+
+sc = SparkContext(appName='Stocks')
+sqlContext = SQLContext(sc)
+ssc = StreamingContext(sc, 5)
+
+ss = SparkSession.builder.appName('Spotify').getOrCreate()
+
+ss.sparkContext.setLogLevel('WARN')
+
+ks = KafkaUtils.createDirectStream(ssc, ['food1'], {'metadata.broker.list':'localhost:9096'})
+data = ks.map(lambda x: x[1])
+
+data.foreachRDD(lambda rdd: handle(rdd))
+print('\n\n\n Spark is now listening \n\n\n')
+ssc.start()
+ssc.awaitTermination()
+
+spark-submit --packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.4.4 food2_spark_kafkasession_mysql.py
+
+
+
+
